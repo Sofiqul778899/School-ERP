@@ -13,8 +13,12 @@ const AttendanceView: React.FC = () => {
   const today = new Date().toISOString().split('T')[0];
 
   useEffect(() => {
-    setStudents(dataService.getStudents());
-    setAttendance(dataService.getAttendance());
+    const unsubStudents = dataService.subscribeToStudents(setStudents);
+    const unsubAttendance = dataService.subscribeToAttendance(setAttendance);
+    return () => {
+      unsubStudents();
+      unsubAttendance();
+    };
   }, []);
 
   const filteredStudents = useMemo(() => {
@@ -36,16 +40,19 @@ const AttendanceView: React.FC = () => {
     return { present, late, absent, remaining: classTotal - totalMarked, total: classTotal };
   }, [attendance, students, filterClass, today]);
 
-  const markStatus = (student: Student, status: 'Present' | 'Absent' | 'Late') => {
-    dataService.markAttendance({
-      entityId: student.roll,
-      entityName: student.name,
-      type: 'Student',
-      status,
-      className: student.className,
-      date: today
-    });
-    setAttendance(dataService.getAttendance());
+  const markStatus = async (student: Student, status: 'Present' | 'Absent' | 'Late') => {
+    try {
+      await dataService.markAttendance({
+        entityId: student.roll,
+        entityName: student.name,
+        type: 'Student',
+        status,
+        className: student.className,
+        date: today
+      });
+    } catch (err: any) {
+      alert('Failed to mark attendance: ' + err.message);
+    }
   };
 
   const getStatus = (roll: string) => {

@@ -14,8 +14,12 @@ const ResultView: React.FC = () => {
   });
 
   useEffect(() => {
-    setStudents(dataService.getStudents());
-    setResults(dataService.getResults());
+    const unsubStudents = dataService.subscribeToStudents(setStudents);
+    const unsubResults = dataService.subscribeToResults(setResults);
+    return () => {
+      unsubStudents();
+      unsubResults();
+    };
   }, []);
 
   const calculateFinalGrade = (totalMarks: number, subjectsCount: number) => {
@@ -89,20 +93,23 @@ const ResultView: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.studentRoll) return;
     
-    if (editingId) {
-      dataService.updateResult({ ...formData, id: editingId } as Result);
-    } else {
-      dataService.saveResult(formData);
+    try {
+      if (editingId) {
+        await dataService.updateResult({ ...formData, id: editingId } as Result);
+      } else {
+        await dataService.saveResult(formData);
+      }
+      
+      alert(editingId ? 'Result updated!' : 'Result published!');
+      setFormData({ ...formData, subject: '', marks: 0 });
+      setEditingId(null);
+    } catch (err: any) {
+      alert('Failed to save result: ' + err.message);
     }
-    
-    setResults(dataService.getResults());
-    alert(editingId ? 'Result updated!' : 'Result published!');
-    setFormData({ ...formData, subject: '', marks: 0 });
-    setEditingId(null);
   };
 
   const filteredRolls = useMemo(() => {

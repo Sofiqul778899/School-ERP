@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Layout, Users, UserCheck, CreditCard, ClipboardList, Home, FileSpreadsheet, Menu, X, Bell, Calendar, Banknote, HardHat, UserRoundCheck, Settings as SettingsIcon } from 'lucide-react';
+import { Layout, Users, UserCheck, CreditCard, ClipboardList, Home, FileSpreadsheet, Menu, X, Bell, Calendar, Banknote, HardHat, UserRoundCheck, Settings as SettingsIcon, LogOut, LogIn } from 'lucide-react';
 import DashboardView from './components/DashboardView';
 import StudentView from './components/StudentView';
 import TeacherView from './components/TeacherView';
@@ -12,10 +12,13 @@ import OperationCostView from './components/OperationCostView';
 import AttendanceView from './components/AttendanceView';
 import StudentDetailsView from './components/StudentDetailsView';
 import SettingsView from './components/SettingsView';
+import { FirebaseProvider, useAuth } from './components/FirebaseProvider';
+import ErrorBoundary from './components/ErrorBoundary';
 
 type View = 'dashboard' | 'students' | 'teachers' | 'attendance' | 'fees' | 'results' | 'leaves' | 'salaries' | 'costs' | 'sheets' | 'student-details' | 'settings';
 
-const App: React.FC = () => {
+const AppContent: React.FC = () => {
+  const { user, loading, login, logout } = useAuth();
   const [currentView, setCurrentView] = useState<View>('dashboard');
   const [selectedStudentRoll, setSelectedStudentRoll] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -71,6 +74,14 @@ const App: React.FC = () => {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-slate-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden font-inter">
       <aside className={`bg-[#1a1c2c] text-white transition-all duration-300 flex-shrink-0 ${isSidebarOpen ? 'w-64' : 'w-20'} h-full flex flex-col no-print`}>
@@ -99,7 +110,16 @@ const App: React.FC = () => {
           })}
         </nav>
 
-        <div className="p-4 border-t border-slate-800">
+        <div className="p-4 border-t border-slate-800 space-y-2">
+          {user && (
+            <button 
+              onClick={logout}
+              className="w-full flex items-center gap-4 p-3 rounded-lg text-rose-400 hover:bg-rose-500/10 transition-all"
+            >
+              <LogOut className="w-5 h-5 flex-shrink-0" />
+              {isSidebarOpen && <span className="font-medium whitespace-nowrap text-sm">Logout</span>}
+            </button>
+          )}
           <button 
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
             className="w-full flex items-center justify-center p-2 hover:bg-slate-800 rounded text-slate-400"
@@ -121,10 +141,14 @@ const App: React.FC = () => {
             </button>
             <div className="flex items-center gap-3 border-l pl-4 ml-2">
               <div className="text-right hidden sm:block">
-                <p className="text-sm font-bold text-slate-800">Admin User</p>
-                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Administrator</p>
+                <p className="text-sm font-bold text-slate-800">{user?.displayName || 'Guest User'}</p>
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{user ? 'Administrator' : 'Not Signed In'}</p>
               </div>
-              <img src="https://ui-avatars.com/api/?name=Admin&background=6366f1&color=fff" className="w-9 h-9 rounded-full border-2 border-slate-100" alt="Profile" />
+              <img 
+                src={user?.photoURL || `https://ui-avatars.com/api/?name=${user?.displayName || 'G'}&background=6366f1&color=fff`} 
+                className="w-9 h-9 rounded-full border-2 border-slate-100" 
+                alt="Profile" 
+              />
             </div>
           </div>
         </header>
@@ -134,6 +158,16 @@ const App: React.FC = () => {
         </div>
       </main>
     </div>
+  );
+};
+
+const App: React.FC = () => {
+  return (
+    <ErrorBoundary>
+      <FirebaseProvider>
+        <AppContent />
+      </FirebaseProvider>
+    </ErrorBoundary>
   );
 };
 

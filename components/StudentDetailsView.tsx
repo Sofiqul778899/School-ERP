@@ -17,18 +17,36 @@ const StudentDetailsView: React.FC<StudentDetailsViewProps> = ({ roll, onBack })
   const [activeTab, setActiveTab] = useState<'summary' | 'profile' | 'fees' | 'academic' | 'attendance'>('summary');
 
   useEffect(() => {
-    const s = dataService.getStudents().find(st => st.roll === roll);
-    if (s) {
-      setStudent(s);
-      setFees(dataService.getFees().filter(f => f.studentRoll === roll));
-      setResults(dataService.getResults().filter(r => r.studentRoll === roll));
-      setAttendance(dataService.getAttendance().filter(a => a.entityId === roll));
-    }
+    const unsubStudents = dataService.subscribeToStudents((students) => {
+      const s = students.find(st => st.roll === roll);
+      if (s) setStudent(s);
+    });
+    const unsubFees = dataService.subscribeToFees((fees) => {
+      setFees(fees.filter(f => f.studentRoll === roll));
+    });
+    const unsubResults = dataService.subscribeToResults((results) => {
+      setResults(results.filter(r => r.studentRoll === roll));
+    });
+    const unsubAttendance = dataService.subscribeToAttendance((attendance) => {
+      setAttendance(attendance.filter(a => a.entityId === roll));
+    });
+
+    return () => {
+      unsubStudents();
+      unsubFees();
+      unsubResults();
+      unsubAttendance();
+    };
   }, [roll]);
 
   const stats = useMemo(() => {
     const totalPaid = fees.reduce((acc, f) => acc + f.paidAmount, 0);
-    const balance = dataService.getStudentBalance(roll);
+    
+    // Calculate balance locally based on fees history
+    const totalPayable = fees.reduce((acc, f) => acc + (f.total - f.previousDue), 0);
+    const totalPaidAll = fees.reduce((acc, f) => acc + f.paidAmount, 0);
+    const balance = Math.max(0, totalPayable - totalPaidAll);
+
     const totalMarks = results.reduce((acc, r) => acc + r.marks, 0);
     const avgMarks = results.length > 0 ? (totalMarks / results.length).toFixed(1) : 'N/A';
     const presentCount = attendance.filter(a => a.status === 'Present' || a.status === 'Late').length;

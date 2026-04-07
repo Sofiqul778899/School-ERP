@@ -12,7 +12,8 @@ const TeacherView: React.FC = () => {
   });
 
   useEffect(() => {
-    setTeachers(dataService.getTeachers());
+    const unsubscribe = dataService.subscribeToTeachers(setTeachers);
+    return () => unsubscribe();
   }, []);
 
   const calculateServicePeriod = (joiningDate: string) => {
@@ -47,17 +48,20 @@ const TeacherView: React.FC = () => {
     setFormData(t);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingId) {
-      dataService.updateTeacher({ ...formData, id: editingId } as Teacher);
-    } else {
-      dataService.saveTeacher(formData as Omit<Teacher, 'id'>);
+    try {
+      if (editingId) {
+        await dataService.updateTeacher({ ...formData, id: editingId } as Teacher);
+      } else {
+        await dataService.saveTeacher(formData as Omit<Teacher, 'id'>);
+      }
+      setFormData({ name: '', fatherName: '', address: '', mobile: '', dob: '', designation: '', joiningDate: new Date().toISOString().split('T')[0], baseSalary: 0, photo: '' });
+      setEditingId(null);
+      alert(editingId ? 'Teacher record updated!' : 'Teacher registered!');
+    } catch (err: any) {
+      alert('Failed to save teacher: ' + err.message);
     }
-    setTeachers(dataService.getTeachers());
-    setFormData({ name: '', fatherName: '', address: '', mobile: '', dob: '', designation: '', joiningDate: new Date().toISOString().split('T')[0], baseSalary: 0, photo: '' });
-    setEditingId(null);
-    alert(editingId ? 'Teacher record updated!' : 'Teacher registered!');
   };
 
   return (

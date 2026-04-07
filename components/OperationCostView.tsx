@@ -12,7 +12,10 @@ const OperationCostView: React.FC = () => {
   });
 
   useEffect(() => {
-    setCosts(dataService.getCosts().sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+    const unsubscribe = dataService.subscribeToCosts((costs) => {
+      setCosts(costs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+    });
+    return () => unsubscribe();
   }, []);
 
   const totalSpent = costs.reduce((acc, c) => acc + c.amount, 0);
@@ -27,16 +30,19 @@ const OperationCostView: React.FC = () => {
     setFormData(c);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingId) {
-      dataService.updateCost({ ...formData, id: editingId } as OperationCost);
-    } else {
-      dataService.saveCost(formData as Omit<OperationCost, 'id'>);
+    try {
+      if (editingId) {
+        await dataService.updateCost({ ...formData, id: editingId } as OperationCost);
+      } else {
+        await dataService.saveCost(formData as Omit<OperationCost, 'id'>);
+      }
+      setFormData({ category: 'Utility', description: '', amount: 0, date: new Date().toISOString().split('T')[0] });
+      setEditingId(null);
+    } catch (err: any) {
+      alert('Failed to save expense: ' + err.message);
     }
-    setCosts(dataService.getCosts().sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-    setFormData({ category: 'Utility', description: '', amount: 0, date: new Date().toISOString().split('T')[0] });
-    setEditingId(null);
   };
 
   return (

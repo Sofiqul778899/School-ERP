@@ -1,8 +1,9 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Users, UserCheck, Wallet, TrendingDown, Clock, AlertTriangle, Search, ChevronRight } from 'lucide-react';
 import { ResponsiveContainer, AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip, BarChart, Bar, Cell } from 'recharts';
 import { dataService } from '../services/dataService';
+import { DashboardStats, Student } from '../types';
 
 interface DashboardViewProps {
   onSearchStudent: (roll: string) => void;
@@ -10,8 +11,27 @@ interface DashboardViewProps {
 
 const DashboardView: React.FC<DashboardViewProps> = ({ onSearchStudent }) => {
   const [studentSearch, setStudentSearch] = useState('');
-  const stats = dataService.getDashboardStats();
-  const students = dataService.getStudents();
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [s, st] = await Promise.all([
+          dataService.getDashboardStats(),
+          dataService.getStudents()
+        ]);
+        setStats(s);
+        setStudents(st);
+      } catch (error) {
+        console.error('Failed to fetch dashboard data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -21,6 +41,14 @@ const DashboardView: React.FC<DashboardViewProps> = ({ onSearchStudent }) => {
       else alert('Student not found!');
     }
   };
+
+  if (loading || !stats) {
+    return (
+      <div className="flex items-center justify-center h-[60vh]">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
 
   const cards = [
     { label: 'Total Students', value: stats.totalStudents, sub: `${stats.studentsOnLeave} on leave`, icon: Users, color: 'text-indigo-600', bg: 'bg-indigo-50' },

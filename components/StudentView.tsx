@@ -19,7 +19,8 @@ const StudentView: React.FC<StudentViewProps> = ({ onViewStudent }) => {
   });
 
   useEffect(() => {
-    setStudents(dataService.getStudents());
+    const unsubscribe = dataService.subscribeToStudents(setStudents);
+    return () => unsubscribe();
   }, []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -41,16 +42,15 @@ const StudentView: React.FC<StudentViewProps> = ({ onViewStudent }) => {
     setError('');
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     try {
       if (editingId) {
-        dataService.updateStudent({ ...formData, id: editingId } as Student);
+        await dataService.updateStudent({ ...formData, id: editingId } as Student);
       } else {
-        dataService.saveStudent(formData as Omit<Student, 'id'>);
+        await dataService.saveStudent(formData as Omit<Student, 'id'>);
       }
-      setStudents(dataService.getStudents());
       setIsModalOpen(false);
       resetForm();
     } catch (err: any) {
@@ -63,11 +63,14 @@ const StudentView: React.FC<StudentViewProps> = ({ onViewStudent }) => {
     setFormData({ roll: '', name: '', fatherName: '', motherName: '', address: '', mobile: '', dob: '', className: '', photo: '' });
   };
 
-  const handleDelete = (id: string, e: React.MouseEvent) => {
+  const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (confirm('Delete this record permanently?')) {
-      dataService.deleteStudent(id);
-      setStudents(dataService.getStudents());
+      try {
+        await dataService.deleteStudent(id);
+      } catch (err: any) {
+        alert('Failed to delete student: ' + err.message);
+      }
     }
   };
 

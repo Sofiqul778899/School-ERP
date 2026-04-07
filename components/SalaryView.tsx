@@ -12,8 +12,14 @@ const SalaryView: React.FC = () => {
   });
 
   useEffect(() => {
-    setTeachers(dataService.getTeachers());
-    setSalaries(dataService.getSalaries().sort((a, b) => Number(b.id) - Number(a.id)));
+    const unsubTeachers = dataService.subscribeToTeachers(setTeachers);
+    const unsubSalaries = dataService.subscribeToSalaries((salaries) => {
+      setSalaries(salaries.sort((a, b) => Number(b.id) - Number(a.id)));
+    });
+    return () => {
+      unsubTeachers();
+      unsubSalaries();
+    };
   }, []);
 
   useEffect(() => {
@@ -29,14 +35,17 @@ const SalaryView: React.FC = () => {
 
   const total = useMemo(() => formData.baseSalary + formData.bonus - formData.deductions, [formData]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.teacherId) return;
 
-    dataService.saveSalary({ ...formData, total, status: 'Paid' });
-    setSalaries(dataService.getSalaries().sort((a, b) => Number(b.id) - Number(a.id)));
-    setFormData({ ...formData, baseSalary: 0, bonus: 0, deductions: 0 });
-    alert('Salary payout recorded!');
+    try {
+      await dataService.saveSalary({ ...formData, total, status: 'Paid' });
+      setFormData({ ...formData, baseSalary: 0, bonus: 0, deductions: 0 });
+      alert('Salary payout recorded!');
+    } catch (err: any) {
+      alert('Failed to record salary payout: ' + err.message);
+    }
   };
 
   const getTeacherName = (id: string) => teachers.find(t => t.id === id)?.name || 'Unknown';

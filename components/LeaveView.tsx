@@ -14,12 +14,20 @@ const LeaveView: React.FC = () => {
   });
 
   useEffect(() => {
-    setLeaves(dataService.getLeaves().sort((a, b) => Number(b.id) - Number(a.id)));
-    setStudents(dataService.getStudents());
-    setTeachers(dataService.getTeachers());
+    const unsubLeaves = dataService.subscribeToLeaves((leaves) => {
+      setLeaves(leaves.sort((a, b) => Number(b.id) - Number(a.id)));
+    });
+    const unsubStudents = dataService.subscribeToStudents(setStudents);
+    const unsubTeachers = dataService.subscribeToTeachers(setTeachers);
+    
+    return () => {
+      unsubLeaves();
+      unsubStudents();
+      unsubTeachers();
+    };
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const applicant = formData.type === 'Student' 
       ? students.find(s => s.roll === formData.applicantId)
@@ -27,19 +35,25 @@ const LeaveView: React.FC = () => {
 
     if (!applicant) return alert('Invalid Applicant');
 
-    dataService.saveLeave({
-      ...formData as any,
-      applicantName: applicant.name,
-      status: 'Pending'
-    });
-    setLeaves(dataService.getLeaves().sort((a, b) => Number(b.id) - Number(a.id)));
-    setIsModalOpen(false);
-    setFormData({ type: 'Student', category: 'Personal', startDate: '', endDate: '', reason: '', applicantId: '' });
+    try {
+      await dataService.saveLeave({
+        ...formData as any,
+        applicantName: applicant.name,
+        status: 'Pending'
+      });
+      setIsModalOpen(false);
+      setFormData({ type: 'Student', category: 'Personal', startDate: '', endDate: '', reason: '', applicantId: '' });
+    } catch (err: any) {
+      alert('Failed to submit leave application: ' + err.message);
+    }
   };
 
-  const updateStatus = (id: string, status: 'Approved' | 'Rejected') => {
-    dataService.updateLeaveStatus(id, status);
-    setLeaves(dataService.getLeaves().sort((a, b) => Number(b.id) - Number(a.id)));
+  const updateStatus = async (id: string, status: 'Approved' | 'Rejected') => {
+    try {
+      await dataService.updateLeaveStatus(id, status);
+    } catch (err: any) {
+      alert('Failed to update leave status: ' + err.message);
+    }
   };
 
   return (

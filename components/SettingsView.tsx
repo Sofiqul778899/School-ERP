@@ -9,24 +9,30 @@ const SettingsView: React.FC = () => {
   const classes = ['Play', 'Nursery', 'KG', 'Class One', 'Class Two', 'Class Three', 'Class Four', 'Class Five'];
 
   useEffect(() => {
-    const saved = dataService.getRates();
-    if (saved.length === 0) {
-      const initial = classes.map(c => ({
-        className: c, admissionFee: 0, tuitionFee: 0, examFee: 0, sessionFee: 0, registrationFee: 0
-      }));
-      setRates(initial);
-    } else {
-      setRates(saved);
-    }
+    const unsubscribe = dataService.subscribeToRates((saved) => {
+      if (saved.length === 0) {
+        const initial = classes.map(c => ({
+          className: c, admissionFee: 0, tuitionFee: 0, examFee: 0, sessionFee: 0, registrationFee: 0
+        }));
+        setRates(initial);
+      } else {
+        setRates(saved);
+      }
+    });
+    return () => unsubscribe();
   }, []);
 
   const updateRate = (className: string, field: keyof ClassRates, value: number) => {
     setRates(prev => prev.map(r => r.className === className ? { ...r, [field]: value } : r));
   };
 
-  const handleSave = () => {
-    dataService.saveRates(rates);
-    alert('Global Fee Settings Updated Successfully!');
+  const handleSave = async () => {
+    try {
+      await dataService.saveRates(rates);
+      alert('Global Fee Settings Updated Successfully!');
+    } catch (err: any) {
+      alert('Failed to save settings: ' + err.message);
+    }
   };
 
   return (

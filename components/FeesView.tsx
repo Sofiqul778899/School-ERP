@@ -29,15 +29,30 @@ const FeesView: React.FC = () => {
   const [previousDue, setPreviousDue] = useState(0);
 
   useEffect(() => {
-    setStudents(dataService.getStudents());
-    setFeesHistory(dataService.getFees().sort((a, b) => Number(b.id) - Number(a.id)));
-    setRates(dataService.getRates());
-  }, [success]);
+    const unsubStudents = dataService.subscribeToStudents(setStudents);
+    const unsubFees = dataService.subscribeToFees((fees) => {
+      setFeesHistory(fees.sort((a, b) => Number(b.id) - Number(a.id)));
+    });
+    const unsubRates = dataService.subscribeToRates(setRates);
+    
+    return () => {
+      unsubStudents();
+      unsubFees();
+      unsubRates();
+    };
+  }, []);
+
+  const getStudentBalance = (roll: string) => {
+    const studentFees = feesHistory.filter(f => f.studentRoll === roll);
+    const totalPayable = studentFees.reduce((acc, f) => acc + (f.total - f.previousDue), 0);
+    const totalPaid = studentFees.reduce((acc, f) => acc + f.paidAmount, 0);
+    return Math.max(0, totalPayable - totalPaid);
+  };
 
   useEffect(() => {
     if (formData.studentRoll) {
       const student = students.find(s => s.roll === formData.studentRoll);
-      const balance = dataService.getStudentBalance(formData.studentRoll);
+      const balance = getStudentBalance(formData.studentRoll);
       setPreviousDue(balance);
 
       if (student) {
@@ -60,7 +75,7 @@ const FeesView: React.FC = () => {
         admissionFee: 0, registrationFee: 0, sessionFee: 0, tuitionFee: 0, examFee: 0
       }));
     }
-  }, [formData.studentRoll, formData.month, rates, students]);
+  }, [formData.studentRoll, formData.month, rates, students, feesHistory]);
 
   const totals = useMemo(() => {
     const currentMonthFees = 
@@ -78,26 +93,31 @@ const FeesView: React.FC = () => {
     };
   }, [formData, previousDue]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.studentRoll) return alert('Please select a student');
     
-    const newRecord = dataService.saveFee({
-      ...formData,
-      previousDue: previousDue,
-      total: totals.total,
-      dueAmount: totals.due
-    } as any);
-    
-    setFeesHistory(dataService.getFees().sort((a, b) => Number(b.id) - Number(a.id)));
-    setPrintableRecord(newRecord as any);
-    setFormData({
-      studentRoll: '', month: formData.month, 
-      admissionFee: 0, registrationFee: 0, idCardDiaryFee: 0, sessionFee: 0, tuitionFee: 0, 
-      examFee: 0, culturalSportsFee: 0, scholarshipExamFee: 0, othersFee: 0, paidAmount: 0
-    });
-    setSuccess(true);
-    setTimeout(() => setSuccess(false), 3000);
+    try {
+      const newRecord = await dataService.saveFee({
+        ...formData,
+        previousDue: previousDue,
+        total: totals.total,
+        dueAmount: totals.due
+      } as any);
+      
+      if (newRecord) {
+        setPrintableRecord(newRecord as any);
+      }
+      setFormData({
+        studentRoll: '', month: formData.month, 
+        admissionFee: 0, registrationFee: 0, idCardDiaryFee: 0, sessionFee: 0, tuitionFee: 0, 
+        examFee: 0, culturalSportsFee: 0, scholarshipExamFee: 0, othersFee: 0, paidAmount: 0
+      });
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 3000);
+    } catch (err: any) {
+      alert('Failed to save fee record: ' + err.message);
+    }
   };
 
   const handlePrint = (record: FeeRecord) => {
